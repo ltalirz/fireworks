@@ -3,6 +3,8 @@ This module contains FireWorker, which encapsulates information about a computin
 """
 
 import json
+import typing
+import dataclasses
 
 from fireworks.fw_config import FWORKER_LOC
 from fireworks.utilities.fw_serializers import (
@@ -10,6 +12,7 @@ from fireworks.utilities.fw_serializers import (
     FWSerializable,
     recursive_deserialize,
     recursive_serialize,
+    update_from_env,
 )
 
 __author__ = "Anubhav Jain"
@@ -19,9 +22,20 @@ __maintainer__ = "Anubhav Jain"
 __email__ = "ajain@lbl.gov"
 __date__ = "Dec 12, 2012"
 
+@dataclasses.dataclass
+class FWorkerConfig:
+    """
+    Dataclass for storing the FWorker configuration.
+    """
+
+    name: str = ""
+    category: typing.Union[str,list] = ""
+    query: dict = dataclasses.field(default_factory=dict)
+    env: dict = dataclasses.field(default_factory=dict)
+
 
 class FWorker(FWSerializable):
-    def __init__(self, name="Automatically generated Worker", category="", query=None, env=None):
+    def __init__(self, *args, **kwargs):
         """
         Args:
             name (str): the name of the resource, should be unique
@@ -35,10 +49,10 @@ class FWorker(FWSerializable):
                 commands or settings.  See :class:`fireworks.core.firework.FiretaskBase`
                 for information on how to use this env variable in Firetasks.
         """
-        self.name = name
-        self.category = category
-        self._query = query if query else {}
-        self.env = env if env else {}
+        config = update_from_env(FWorkerConfig(*args, **kwargs), prefix="FWORKER_")
+        config_dict = dataclasses.asdict(config)
+        self._query = config_dict.pop("query", None)
+        self.__dict__.update(config_dict)
 
     @recursive_serialize
     def to_dict(self):
@@ -48,6 +62,7 @@ class FWorker(FWSerializable):
             "query": json.dumps(self._query, default=DATETIME_HANDLER),
             "env": self.env,
         }
+
 
     @classmethod
     @recursive_deserialize

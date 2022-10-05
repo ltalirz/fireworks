@@ -31,8 +31,10 @@ import datetime
 import importlib
 import inspect
 import json  # note that ujson is faster, but at this time does not support "default" in dumps()
+import os
 import pkgutil
 import traceback
+from dataclasses import dataclass
 
 import ruamel.yaml as yaml
 from monty.json import MontyDecoder, MSONable
@@ -146,6 +148,42 @@ def recursive_serialize(func):
         return m_dict
 
     return _decorator
+
+# def update_m_dict_from_env(func):
+#     """
+#     a decorator to update dict values from environment variables
+
+#     expects `func` to receive a `dict` as the first positional argument 
+#     or as an `m_dict`/`d` keyword argument
+#     """
+#     def _decorator(cls, *args, **kwargs):
+#         try: 
+#             m_dict = kwargs.get('m_dict') or kwargs.get('d') or args[0]
+#             assert isinstance(m_dict, dict)
+#         except (KeyError, AssertionError):
+#             return func(cls, *args, **kwargs)
+        
+#         prefix = f"{cls.__name__.upper()}_"
+#         for k in m_dict:
+#             env_key = prefix + k.upper()
+#             if env_key in os.environ:
+#                 m_dict[k] = os.environ[env_key]
+#         return func(cls, *args, **kwargs)
+
+#     return _decorator
+
+def update_from_env(instance:dataclass, prefix:str):
+    """
+    update a dataclass instance from environment variables
+
+    environment variables, if set, take precedence.
+    """
+    #assert isinstance(instance, dataclass)
+    for k in instance.__dataclass_fields__:
+        env_key = prefix + k.upper()
+        if env_key in os.environ:
+            setattr(instance, k, os.environ[env_key])
+    return instance
 
 
 def recursive_deserialize(func):

@@ -12,6 +12,7 @@ import traceback
 import warnings
 from collections import defaultdict
 from itertools import chain
+from dataclasses import asdict, dataclass, field
 
 import gridfs
 from bson import ObjectId
@@ -37,6 +38,7 @@ from fireworks.utilities.fw_serializers import (
     FWSerializable,
     reconstitute_dates,
     recursive_dict,
+    update_from_env,
 )
 from fireworks.utilities.fw_utilities import get_fw_logger
 
@@ -48,6 +50,25 @@ __date__ = "Jan 30, 2013"
 
 
 # TODO: lots of duplication reduction and cleanup possible
+
+@dataclass
+class LaunchPadConfig:
+    """
+    Dataclass for storing the LaunchPad configuration.
+    """
+
+    host: str = None
+    port: int = 27017
+    name: str = "fireworks"
+    username: str = None
+    password: str = None
+    strm_lvl: str = "INFO"
+    authsource: str = None
+    uri_mode: bool = False
+    logdir: str = None
+    user_indices: list = field(default_factory=list)
+    wf_user_indices: list = field(default_factory=list)
+    mongoclient_kwargs: dict = field(default_factory=dict)
 
 
 def sort_aggregation(sort):
@@ -151,18 +172,8 @@ class LaunchPad(FWSerializable):
 
     def __init__(
         self,
-        host=None,
-        port=None,
-        name=None,
-        username=None,
-        password=None,
-        logdir=None,
-        strm_lvl=None,
-        user_indices=None,
-        wf_user_indices=None,
-        authsource=None,
-        uri_mode=False,
-        mongoclient_kwargs=None,
+        *args,
+        **kwargs,
     ):
         """
         Args:
@@ -186,28 +197,18 @@ class LaunchPad(FWSerializable):
                 arguments. Note these arguments are different depending on the major pymongo version used; see
                 pymongo documentation for more details.
         """
-
-        self.host = host if (host or uri_mode) else "localhost"
-        self.port = port if (port or uri_mode) else 27017
-        self.name = name if (name or uri_mode) else "fireworks"
-        self.username = username
-        self.password = password
-        self.authsource = authsource or self.name
-        self.mongoclient_kwargs = mongoclient_kwargs or {}
-        self.uri_mode = uri_mode
+        config = update_from_env(LaunchPadConfig(*args,**kwargs), prefix="LAUNCHPAD_")
+        self.__dict__.update(asdict(config))
+    
+        self.authsource = self.authsource or self.name
 
         # set up logger
-        self.logdir = logdir
-        self.strm_lvl = strm_lvl if strm_lvl else "INFO"
         self.m_logger = get_fw_logger("launchpad", l_dir=self.logdir, stream_level=self.strm_lvl)
 
-        self.user_indices = user_indices if user_indices else []
-        self.wf_user_indices = wf_user_indices if wf_user_indices else []
-
         # get connection
-        if uri_mode:
-            self.connection = MongoClient(host, **self.mongoclient_kwargs)
-            dbname = host.split("/")[-1].split("?")[0]  # parse URI to extract dbname
+        if self.uri_mode:
+            self.connection = MongoClient(self.host, **self.mongoclient_kwargs)
+            dbname = self.host.split("/")[-1].split("?")[0]  # parse URI to extract dbname
             self.db = self.connection[dbname]
         else:
             self.connection = MongoClient(
@@ -238,20 +239,11 @@ class LaunchPad(FWSerializable):
         """
         Note: usernames/passwords are exported as unencrypted Strings!
         """
-        return {
-            "host": self.host,
-            "port": self.port,
-            "name": self.name,
-            "username": self.username,
-            "password": self.password,
-            "logdir": self.logdir,
-            "strm_lvl": self.strm_lvl,
-            "user_indices": self.user_indices,
-            "wf_user_indices": self.wf_user_indices,
-            "authsource": self.authsource,
-            "uri_mode": self.uri_mode,
-            "mongoclient_kwargs": self.mongoclient_kwargs,
-        }
+        kwargs = {}
+        for key in LaunchPadConfig.__dataclass_fields__.keys():
+            kwargs[key] = getattr(self, key)
+
+        return asdict(LaunchPadConfig(**kwargs))
 
     def update_spec(self, fw_ids, spec_document, mongo=False):
         """
@@ -281,30 +273,8 @@ class LaunchPad(FWSerializable):
 
     @classmethod
     def from_dict(cls, d):
-        port = d.get("port", None)
-        name = d.get("name", None)
-        username = d.get("username", None)
-        password = d.get("password", None)
-        logdir = d.get("logdir", None)
-        strm_lvl = d.get("strm_lvl", None)
-        user_indices = d.get("user_indices", [])
-        wf_user_indices = d.get("wf_user_indices", [])
-        authsource = d.get("authsource", None)
-        uri_mode = d.get("uri_mode", False)
-        mongoclient_kwargs = d.get("mongoclient_kwargs", None)
         return LaunchPad(
-            d["host"],
-            port,
-            name,
-            username,
-            password,
-            logdir,
-            strm_lvl,
-            user_indices,
-            wf_user_indices,
-            authsource,
-            uri_mode,
-            mongoclient_kwargs,
+            **d
         )
 
     @classmethod
