@@ -187,18 +187,18 @@ class LaunchPad(FWSerializable):
                 pymongo documentation for more details.
         """
 
-        self.host = host if (host or uri_mode) else "localhost"
-        self.port = port if (port or uri_mode) else 27017
-        self.name = name if (name or uri_mode) else "fireworks"
-        self.username = username
-        self.password = password
-        self.authsource = authsource or self.name
+        self.host = host if (host or uri_mode) else os.environ.get("LAUNCHPAD_HOST", "localhost")
+        self.port = port if (port or uri_mode) else os.environ.get("LAUNCHPAD_PORT", 27017)
+        self.name = name if (name or uri_mode) else os.environ.get("LAUNCHPAD_NAME", "fireworks")
+        self.username = username or os.environ.get("LAUNCHPAD_USER")
+        self.password = password or os.environ.get("LAUNCHPAD_PASSWORD")
+        self.authsource = authsource or os.environ.get("LAUNCHPAD_AUTHSOURCE") or self.name 
         self.mongoclient_kwargs = mongoclient_kwargs or {}
-        self.uri_mode = uri_mode
+        self.uri_mode = uri_mode or os.environ.get("URI_MODE")
 
         # set up logger
-        self.logdir = logdir
-        self.strm_lvl = strm_lvl if strm_lvl else "INFO"
+        self.logdir = logdir or os.environ.get("LAUNCHPAD_LOGDIR")
+        self.strm_lvl = strm_lvl or os.environ.get("LAUNCHPAD_STRM_LVL", "INFO")
         self.m_logger = get_fw_logger("launchpad", l_dir=self.logdir, stream_level=self.strm_lvl)
 
         self.user_indices = user_indices if user_indices else []

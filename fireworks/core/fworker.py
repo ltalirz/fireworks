@@ -3,6 +3,7 @@ This module contains FireWorker, which encapsulates information about a computin
 """
 
 import json
+import os
 
 from fireworks.fw_config import FWORKER_LOC
 from fireworks.utilities.fw_serializers import (
@@ -21,7 +22,7 @@ __date__ = "Dec 12, 2012"
 
 
 class FWorker(FWSerializable):
-    def __init__(self, name="Automatically generated Worker", category="", query=None, env=None):
+    def __init__(self, name="", category="", query=None, env=None):
         """
         Args:
             name (str): the name of the resource, should be unique
@@ -35,10 +36,10 @@ class FWorker(FWSerializable):
                 commands or settings.  See :class:`fireworks.core.firework.FiretaskBase`
                 for information on how to use this env variable in Firetasks.
         """
-        self.name = name
-        self.category = category
-        self._query = query if query else {}
-        self.env = env if env else {}
+        self.name = name or os.environ.get('FIREWORKER_NAME', "Automatically generated Worker")
+        self.category = category or os.environ.get('FIREWORKER_CATEGORY', "")
+        self._query = query or {}
+        self.env = env or {}
 
     @recursive_serialize
     def to_dict(self):
