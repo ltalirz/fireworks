@@ -176,6 +176,16 @@ class LaunchPadTest(unittest.TestCase):
         num_wfs_in_db = len(self.lp.get_wf_ids({"name": "lorem wf"}))
         self.assertEqual(num_wfs_in_db, len(wfs))
 
+    def test_rapidfire_shutdown(self):
+        """rapidfire 'until completion' should shut down immediately when no fireworks are present"""
+        ts = datetime.datetime.utcnow()
+
+        rapidfire(self.lp, self.fworker, m_dir=MODULE_DIR, nlaunches=0)
+
+        rapidfire(self.lp, self.fworker, m_dir=MODULE_DIR)
+        self.assertTrue( (ts - datetime.datetime.utcnow()).total_seconds() < 2, "rapidfire should shut down immediately when no fireworks are present")
+
+
 
 class LaunchPadDefuseReigniteRerunArchiveDeleteTest(unittest.TestCase):
     @classmethod
